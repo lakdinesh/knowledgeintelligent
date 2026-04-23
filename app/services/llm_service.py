@@ -1,19 +1,30 @@
-from langchain.chat_models import ChatOpenAI
-from langchain.chains import create_retrieval_chain,create_history_aware_retriever
+from langchain_openai import ChatOpenAI
+from langchain_classic.chains import ConversationalRetrievalChain
+from langchain_classic.memory import ConversationBufferMemory
 from langchain_core.prompts import ChatPromptTemplate
 from config import Config
 
-class LlmService:
-    def __init__(self,vector_store):
-        self.llm=ChatOpenAI(model="gpt-3.5-turbo",temperature=0.7,openai_api_key=Config.OPENAI_API_KEY)
-        self.memory_retriever=create_history_aware_retriever(vector_store.as_retriever(),k=5)
-        self.chain=create_retrieval_chain(self.llm,self.memory_retriever,return_source_documents=True)
-    def generate_response(self,query):
+class LLMService:
+    def __init__(self, vector_store):
+        self.llm = ChatOpenAI(
+            temperature=0.7,
+            model_name="gpt-3.5-turbo",
+            openai_api_key=Config.OPENAI_API_KEY
+        )
+        self.memory = ConversationBufferMemory(
+            memory_key="chat_history",
+            return_messages=True
+        )
+        self.chain = ConversationalRetrievalChain.from_llm(
+            llm=self.llm,
+            retriever=vector_store.vectore_store.as_retriever(),
+            memory=self.memory
+        )
+
+    def get_response(self, query):
         try:
-            response=self.chain.run(query)
+            response = self.chain({"question": query})
             return response['answer']
         except Exception as e:
-            print(f"Error generating response: {e}")
-            return "Sorry, I couldn't process your request at the moment."
-
-       
+            print(f"Error getting LLM response: {e}")
+            return "I encountered an error processing your request."
